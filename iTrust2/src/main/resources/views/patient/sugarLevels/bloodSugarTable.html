@@ -1,0 +1,1225 @@
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:include="layout :: head(title=~{::title},links=~{::script})">
+<title>Blood Sugar Table</title>
+<script th:src="@{/resources/js/dateTimeService.js}"
+	src="../resources/js/dateTimeService.js"></script>
+
+	<meta charset="utf-8">  
+	<link href="https://cdnjs.cloudflare.com/ajax/libs/nvd3/1.8.6/nv.d3.min.css" rel="stylesheet" type="text/css">
+	<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.5.3/angular.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.5.3/angular-animate.js"></script>
+</head>
+
+<style>
+	.chartWrap {
+	  margin: 0;
+	  padding: 0;
+	  overflow: hidden;
+	}
+	
+	.form-group {
+            display: flex;
+            padding-bottom: 5px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid lightblue;
+        }
+        .form-group > label {
+            flex: 0 0 30%;
+            display: inline-block;
+            padding-right: 10px;
+            cursor: pointer;
+        }
+        .form-group > label + div {
+            flex-grow: 1;
+        }
+        .form-group div label {
+            display: block;
+            font-size: smaller;
+        }
+        form input, form button {
+            padding: 10px;
+            border-radius: 5px;
+            width: calc(100% - 40px);
+            max-width: 300px;
+            margin: 0;
+        }
+        button:not(:disabled) {
+            cursor: pointer;
+        }
+        .has-error input {
+            color: red;
+            border-color: red;
+        }
+        .daterangepicker.fancy-border {
+            border: 2px solid rebeccapurple;
+            box-shadow: 0 4px 15px 0px #888888;
+        }
+        .daterangepicker.fancy-border:before {
+            border-bottom: 5px solid rebeccapurple;
+        }
+        .help-block p {
+            margin: 0 0 10px 0;
+            padding: 0;
+            font-size: smaller;
+            color: red;
+        }
+        #dateSimple.picker-open {
+            background: black;
+            color: white;
+        }
+	
+	/********************
+	 * TOOLTIP CSS
+	 */
+	
+	.nvtooltip {
+	  position: absolute;
+	  background-color: rgba(255,255,255,1);
+	  padding: 10px;
+	  border: 1px solid #ddd;
+	  z-index: 10000;
+	
+	  font-family: Arial;
+	  font-size: 13px;
+	
+	  transition: opacity 500ms linear;
+	  -moz-transition: opacity 500ms linear;
+	  -webkit-transition: opacity 500ms linear;
+	
+	  transition-delay: 500ms;
+	  -moz-transition-delay: 500ms;
+	  -webkit-transition-delay: 500ms;
+	
+	  -moz-box-shadow: 4px 4px 8px rgba(0,0,0,.5);
+	  -webkit-box-shadow: 4px 4px 8px rgba(0,0,0,.5);
+	  box-shadow: 4px 4px 8px rgba(0,0,0,.5);
+	
+	  -moz-border-radius: 10px;
+	  border-radius: 10px;
+	
+	  pointer-events: none;
+	
+	  -webkit-touch-callout: none;
+	  -webkit-user-select: none;
+	  -khtml-user-select: none;
+	  -moz-user-select: none;
+	  -ms-user-select: none;
+	  user-select: none;
+	}
+	
+	.nvtooltip h3 {
+	  margin: 0;
+	  padding: 0;
+	  text-align: center;
+	}
+	
+	.nvtooltip p {
+	  margin: 0;
+	  padding: 0;
+	  text-align: center;
+	}
+	
+	.nvtooltip span {
+	  display: inline-block;
+	  margin: 2px 0;
+	}
+	
+	.nvtooltip-pending-removal {
+	  position: absolute;
+	  pointer-events: none;
+	}
+	
+	
+	/********************
+	 * SVG CSS
+	 */
+	
+	
+	svg {
+	  -webkit-touch-callout: none;
+	  -webkit-user-select: none;
+	  -khtml-user-select: none;
+	  -moz-user-select: none;
+	  -ms-user-select: none;
+	  user-select: none;
+	  /* Trying to get SVG to act like a greedy block in all browsers */
+	  display: block;
+	  width:100%;
+	  height:100%;
+	}
+	
+	
+	svg text {
+	  font: normal 12px sans-serif;
+	}
+	
+	svg .title {
+	 font: bold 14px Arial;
+	}
+	
+	.nvd3 .nv-background {
+	  fill: white;
+	  fill-opacity: 0;
+	  /*
+	  pointer-events: none;
+	  */
+	}
+	
+	.nvd3.nv-noData {
+	  font-size: 18px;
+	  font-weight: bolf;
+	}
+	
+	
+	/**********
+	*  Brush
+	*/
+	
+	.nv-brush .extent {
+	  fill-opacity: .125;
+	  shape-rendering: crispEdges;
+	}
+	
+	
+	
+	/**********
+	*  Legend
+	*/
+	
+	.nvd3 .nv-legend .nv-series {
+	}
+	
+	.nvd3 .nv-legend .disabled circle {
+	  fill-opacity: 0;
+	}
+	
+	
+	
+	/**********
+	*  Axes
+	*/
+	
+	.nvd3 .nv-axis path {
+	  fill: none;
+	  stroke: #000;
+	  stroke-opacity: .75;
+	  shape-rendering: crispEdges;
+	}
+	
+	.nvd3 .nv-axis path.domain {
+	  stroke-opacity: .75;
+	}
+	
+	.nvd3 .nv-axis.nv-x path.domain {
+	  stroke-opacity: 0;
+	}
+	
+	.nvd3 .nv-axis line {
+	  fill: none;
+	  stroke: #000;
+	  stroke-opacity: .25;
+	  shape-rendering: crispEdges;
+	}
+	
+	.nvd3 .nv-axis line.zero {
+	  stroke-opacity: .75;
+	}
+	
+	.nvd3 .nv-axis .nv-axisMaxMin text {
+	  font-weight: bold;
+	}
+	
+	.nvd3 .x  .nv-axis .nv-axisMaxMin text,
+	.nvd3 .x2 .nv-axis .nv-axisMaxMin text,
+	.nvd3 .x3 .nv-axis .nv-axisMaxMin text {
+	  text-anchor: middle
+	}
+	
+	
+	
+	/**********
+	*  Brush
+	*/
+	
+	.nv-brush .resize path {
+	  fill: #eee;
+	  stroke: #666;
+	}
+	
+	
+	
+	/**********
+	*  Bars
+	*/
+	
+	.nvd3 .nv-bars .negative rect {
+	    zfill: brown;
+	}
+	
+	.nvd3 .nv-bars rect {
+	  zfill: steelblue;
+	  fill-opacity: .75;
+	
+	  transition: fill-opacity 250ms linear;
+	  -moz-transition: fill-opacity 250ms linear;
+	  -webkit-transition: fill-opacity 250ms linear;
+	}
+	
+	.nvd3 .nv-bars rect:hover {
+	  fill-opacity: 1;
+	}
+	
+	.nvd3 .nv-bars .hover rect {
+	  fill: lightblue;
+	}
+	
+	.nvd3 .nv-bars text {
+	  fill: rgba(0,0,0,0);
+	}
+	
+	.nvd3 .nv-bars .hover text {
+	  fill: rgba(0,0,0,1);
+	}
+	
+	.nvd3 .nv-x.nv-axis text {
+	  transform: rotate(90);
+	}
+	
+	
+	/**********
+	*  Bars
+	*/
+	
+	.nvd3 .nv-multibar .nv-groups rect,
+	.nvd3 .nv-multibarHorizontal .nv-groups rect,
+	.nvd3 .nv-discretebar .nv-groups rect {
+	  stroke-opacity: 0;
+	
+	  transition: fill-opacity 250ms linear;
+	  -moz-transition: fill-opacity 250ms linear;
+	  -webkit-transition: fill-opacity 250ms linear;
+	}
+	
+	.nvd3 .nv-multibar .nv-groups rect:hover,
+	.nvd3 .nv-multibarHorizontal .nv-groups rect:hover,
+	.nvd3 .nv-discretebar .nv-groups rect:hover {
+	  fill-opacity: 1;
+	}
+	
+	.nvd3 .nv-discretebar .nv-groups text,
+	.nvd3 .nv-multibarHorizontal .nv-groups text {
+	  font-weight: bold;
+	  fill: rgba(0,0,0,1);
+	  stroke: rgba(0,0,0,0);
+	}
+	
+	/***********
+	*  Pie Chart
+	*/
+	
+	.nvd3.nv-pie path {
+	  stroke-opacity: 0;
+	
+	  transition: fill-opacity 250ms linear, stroke-width 250ms linear, stroke-opacity 250ms linear;
+	  -moz-transition: fill-opacity 250ms linear, stroke-width 250ms linear, stroke-opacity 250ms linear;
+	  -webkit-transition: fill-opacity 250ms linear, stroke-width 250ms linear, stroke-opacity 250ms linear;
+	
+	}
+	
+	.nvd3.nv-pie .nv-slice text {
+	  stroke: #000;
+	  stroke-width: 0;
+	}
+	
+	.nvd3.nv-pie path {
+	  stroke: #fff;
+	  stroke-width: 1px;
+	  stroke-opacity: 1;
+	}
+	
+	.nvd3.nv-pie .hover path {
+	  fill-opacity: .7;
+	/*
+	  stroke-width: 6px;
+	  stroke-opacity: 1;
+	*/
+	}
+	
+	.nvd3.nv-pie .nv-label rect {
+	  fill-opacity: 0;
+	  stroke-opacity: 0;
+	}
+	
+	/**********
+	* Lines
+	*/
+	
+	.nvd3 .nv-groups path.nv-line {
+	  fill: none;
+	  stroke-width: 2.5px;
+	  stroke-linecap: round;
+	  shape-rendering: geometricPrecision;
+	
+	  /*
+	  transition: stroke-width 250ms linear;
+	  -moz-transition: stroke-width 250ms linear;
+	  -webkit-transition: stroke-width 250ms linear;
+	
+	  transition-delay: 250ms
+	  -moz-transition-delay: 250ms;
+	  -webkit-transition-delay: 250ms;
+	  */
+	}
+	
+	.nvd3 .nv-groups path.nv-area {
+	  stroke: none;
+	  stroke-linecap: round;
+	  shape-rendering: geometricPrecision;
+	
+	  /*
+	  stroke-width: 2.5px;
+	  transition: stroke-width 250ms linear;
+	  -moz-transition: stroke-width 250ms linear;
+	  -webkit-transition: stroke-width 250ms linear;
+	
+	  transition-delay: 250ms
+	  -moz-transition-delay: 250ms;
+	  -webkit-transition-delay: 250ms;
+	  */
+	}
+	
+	.nvd3 .nv-line.hover path {
+	  stroke-width: 6px;
+	}
+	
+	/*
+	.nvd3.scatter .groups .point {
+	  fill-opacity: 0.1;
+	  stroke-opacity: 0.1;
+	}
+	  */
+	
+	.nvd3.nv-line .nvd3.nv-scatter .nv-groups .nv-point {
+	  fill-opacity: 0;
+	  stroke-opacity: 0;
+	}
+	
+	.nvd3.nv-scatter.nv-single-point .nv-groups .nv-point {
+	  fill-opacity: .5 !important;
+	  stroke-opacity: .5 !important;
+	}
+	
+	
+	.nvd3 .nv-groups .nv-point {
+	  transition: stroke-width 250ms linear, stroke-opacity 250ms linear;
+	  -moz-transition: stroke-width 250ms linear, stroke-opacity 250ms linear;
+	  -webkit-transition: stroke-width 250ms linear, stroke-opacity 250ms linear;
+	}
+	
+	.nvd3.nv-scatter .nv-groups .nv-point.hover,
+	.nvd3 .nv-groups .nv-point.hover {
+	  stroke-width: 20px;
+	  fill-opacity: .5 !important;
+	  stroke-opacity: .5 !important;
+	}
+	
+	
+	.nvd3 .nv-point-paths path {
+	  stroke: #aaa;
+	  stroke-opacity: 0;
+	  fill: #eee;
+	  fill-opacity: 0;
+	}
+	
+	
+	
+	.nvd3 .nv-indexLine {
+	  cursor: ew-resize;
+	}
+	
+	
+	/**********
+	* Distribution
+	*/
+	
+	.nvd3 .nv-distribution {
+	  pointer-events: none;
+	}
+	
+	
+	
+	/**********
+	*  Scatter
+	*/
+	
+	.nvd3 .nv-groups .nv-point {
+	  pointer-events: none;
+	}
+	
+	.nvd3 .nv-groups .nv-point.hover {
+	  stroke-width: 20px;
+	  stroke-opacity: .5;
+	}
+	
+	.nvd3 .nv-scatter .nv-point.hover {
+	  fill-opacity: 1;
+	}
+	
+	/*
+	.nv-group.hover .nv-point {
+	  fill-opacity: 1;
+	}
+	*/
+	
+	
+	/**********
+	*  Stacked Area
+	*/
+	
+	.nvd3.nv-stackedarea path.nv-area {
+	  fill-opacity: .7;
+	  /*
+	  stroke-opacity: .65;
+	  fill-opacity: 1;
+	  */
+	  stroke-opacity: 0;
+	
+	  transition: fill-opacity 250ms linear, stroke-opacity 250ms linear;
+	  -moz-transition: fill-opacity 250ms linear, stroke-opacity 250ms linear;
+	  -webkit-transition: fill-opacity 250ms linear, stroke-opacity 250ms linear;
+	
+	  /*
+	  transition-delay: 500ms;
+	  -moz-transition-delay: 500ms;
+	  -webkit-transition-delay: 500ms;
+	  */
+	
+	}
+	
+	.nvd3.nv-stackedarea path.nv-area.hover {
+	  fill-opacity: .9;
+	  /*
+	  stroke-opacity: .85;
+	  */
+	}
+	/*
+	.d3stackedarea .groups path {
+	  stroke-opacity: 0;
+	}
+	  */
+	
+	
+	
+	.nvd3.nv-stackedarea .nv-groups .nv-point {
+	  stroke-opacity: 0;
+	  fill-opacity: 0;
+	}
+	
+	.nvd3.nv-stackedarea .nv-groups .nv-point.hover {
+	  stroke-width: 20px;
+	  stroke-opacity: .75;
+	  fill-opacity: 1;
+	}
+	
+	
+	
+	/**********
+	*  Line Plus Bar
+	*/
+	
+	.nvd3.nv-linePlusBar .nv-bar rect {
+	  fill-opacity: .75;
+	}
+	
+	.nvd3.nv-linePlusBar .nv-bar rect:hover {
+	  fill-opacity: 1;
+	}
+	
+	
+	/**********
+	*  Bullet
+	*/
+	
+	.nvd3.nv-bullet { font: 10px sans-serif; }
+	.nvd3.nv-bullet rect { fill-opacity: .6; }
+	.nvd3.nv-bullet rect:hover { fill-opacity: 1; }
+	.nvd3.nv-bullet .nv-marker { stroke: #000; stroke-width: 2px; }
+	.nvd3.nv-bullet .nv-markerTriangle { stroke: #000; fill: #fff; stroke-width: 1.5px; }
+	.nvd3.nv-bullet .nv-tick line { stroke: #666; stroke-width: .5px; }
+	.nvd3.nv-bullet .nv-range.nv-s0 { fill: #eee; }
+	.nvd3.nv-bullet .nv-range.nv-s1 { fill: #ddd; }
+	.nvd3.nv-bullet .nv-range.nv-s2 { fill: #ccc; }
+	.nvd3.nv-bullet .nv-title { font-size: 14px; font-weight: bold; }
+	.nvd3.nv-bullet .nv-subtitle { fill: #999; }
+	
+	
+	
+	
+	/**********
+	* Sparkline
+	*/
+	
+	.nvd3.nv-sparkline path {
+	  fill: none;
+	}
+	
+	.nvd3.nv-sparklineplus g.nv-hoverValue {
+	  pointer-events: none;
+	}
+	
+	.nvd3.nv-sparklineplus .nv-hoverValue line {
+	  stroke: #f44;
+	  stroke-width: 1.5px;
+	 }
+	
+	.nvd3.nv-sparklineplus,
+	.nvd3.nv-sparklineplus g {
+	  pointer-events: all;
+	}
+	
+	.nvd3 .nv-hoverArea {
+	  fill-opacity: 0;
+	  stroke-opacity: 0;
+	}
+	
+	.nvd3.nv-sparklineplus .nv-xValue,
+	.nvd3.nv-sparklineplus .nv-yValue {
+	  /*
+	  stroke: #666;
+	  */
+	  stroke-width: 0;
+	  font-size: .8em;
+	  font-weight: normal;
+	}
+	
+	.nvd3.nv-sparklineplus .nv-yValue {
+	  stroke: #f66;
+	}
+	
+	.nvd3.nv-sparklineplus .nv-maxValue {
+	  stroke: #2ca02c;
+	  fill: #2ca02c;
+	}
+	
+	.nvd3.nv-sparklineplus .nv-minValue {
+	  stroke: #d62728;
+	  fill: #d62728;
+	}
+	
+	.nvd3.nv-sparklineplus .nv-currentValue {
+	  stroke: #444;
+	  fill: #444;
+	}
+	
+	/**********
+	* historical stock
+	*/
+	
+	.nvd3.nv-ohlcBar .nv-ticks .nv-tick {
+	  stroke-width: 2px;
+	}
+	
+	.nvd3.nv-ohlcBar .nv-ticks .nv-tick.hover {
+	  stroke-width: 4px;
+	}
+	
+	.nvd3.nv-ohlcBar .nv-ticks .nv-tick.positive {
+	 stroke: #2ca02c;
+	}
+	
+	.nvd3.nv-ohlcBar .nv-ticks .nv-tick.negative {
+	 stroke: #d62728;
+	}
+	
+	.nvd3.nv-historicalStockChart .nv-axis .nv-axislabel {
+	  font-weight: bold;
+	}
+	
+	.nvd3.nv-historicalStockChart .nv-dragTarget {
+	  fill-opacity: 0;
+	  stroke: none;
+	  cursor: move;
+	}
+	
+	.nvd3 .nv-brush .extent {
+	  /*
+	  cursor: ew-resize !important;
+	  */
+	  fill-opacity: 0 !important;
+	}
+	
+	.nvd3 .nv-brushBackground rect {
+	  stroke: #000;
+	  stroke-width: .4;
+	  fill: #fff;
+	  fill-opacity: .7;
+	}
+	
+	
+	
+	/**********
+	* Indented Tree
+	*/
+	
+	
+	/**
+	 * TODO: the following 3 selectors are based on classes used in the example.  I should either make them standard and leave them here, or move to a CSS file not included in the library
+	 */
+	.nvd3.nv-indentedtree .name {
+	  margin-left: 5px;
+	}
+	
+	.nvd3.nv-indentedtree .clickable {
+	  color: #08C;
+	  cursor: pointer;
+	}
+	
+	.nvd3.nv-indentedtree span.clickable:hover {
+	  color: #005580;
+	  text-decoration: underline;
+	}
+	
+	
+	.nvd3.nv-indentedtree .nv-childrenCount {
+	  display: inline-block;
+	  margin-left: 5px;
+	}
+	
+	.nvd3.nv-indentedtree .nv-treeicon {
+	  cursor: pointer;
+	  /*
+	  cursor: n-resize;
+	  */
+	}
+	
+	.nvd3.nv-indentedtree .nv-treeicon.nv-folded {
+	  cursor: pointer;
+	  /*
+	  cursor: s-resize;
+	  */
+	}
+</style>
+
+<body th:include="layout :: body" th:with="content=~{::content}">
+	<div th:fragment="content">
+		<div class="container">
+	<script src="http://code.jquery.com/jquery-3.3.1.slim.js" integrity="sha256-fNXJFIlca05BIO2Y5zh1xrShK3ME+/lYZ0j+ChxX2DA=" crossorigin="anonymous"></script>
+    <script src="../../resources/js/jquery.csv.js"></script>
+    <script src="http://code.jquery.com/jquery-3.3.1.slim.js" integrity="sha256-fNXJFIlca05BIO2Y5zh1xrShK3ME+/lYZ0j+ChxX2DA=" crossorigin="anonymous"></script>
+    <script src="../../resources/js/jquery.csv.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nvd3/1.8.1/nv.d3.min.js"></script>
+    <script src="https://rawgit.com/krispo/angular-nvd3/v1.0.5/dist/angular-nvd3.js"></script>
+    
+	<script th:inline="javascript">
+        /* Otherwise Thymeleaf tries to parse Javascript as XML and breaks itself sometimes.  Sigh */
+        /*<![CDATA[*/
+        var app = angular.module('myApp', ['nvd3', 'dateTimeServices']);
+
+        /**
+          * A filter to humanize the text to be more user friendly.
+          */
+        app.filter('humanize', function () {
+          return function (input) {
+            return !input ? input : input.toLowerCase().split('_')
+              .map((word) => word.charAt(0).toUpperCase() + word.substring(1))
+              .join(' ');
+          }
+        });
+        
+        /**
+          * From https://stackoverflow.com/questions/26353676/how-to-read-csv-file-content-in-angularjs
+          * Reads contents of the file selected.
+          */
+        app.directive('fileReader', function($parse) {
+        	  return {
+        	    scope: {
+        	      fileReader:"="
+        	    },
+        	    link: function(scope, element) {
+        	      $(element).on('change', function(changeEvent) {
+        	        var files = changeEvent.target.files;
+        	        if (files.length) {
+        	          var r = new FileReader();
+        	          r.onload = function(e) {
+        	              var contents = e.target.result;
+        	              scope.$apply(function () {
+        	            	  console.log(contents);
+        	                scope.fileReader = contents;
+        	                $parse.data = $.csv.toObjects(contents);
+        	               	console.log($parse.data);
+        	              });
+        	          };
+        	          
+        	          r.readAsText(files[0]);
+        	        }
+        	      });
+        	    }
+        	  };
+        	});
+
+        app.controller(
+          'bloodSugarTableCtrl',
+          function ($scope, $window, $http, $parse, dateTimeService) {
+        	  
+        	$scope.showGraph = false;
+        	$http.get("/iTrust2/api/v1/bloodsugar").then(
+                  	function (response) {
+                  		$scope.respData = response.data;
+                  		$scope.respData.sort(function(a,b){
+              			  return new Date(a.date) - new Date(b.date);
+              		});
+            });
+       		$http.get("/iTrust2/api/v1/bloodsugar").then(
+              	function (response) {
+            	
+            		$scope.entries = response.data;
+              		$scope.idx = $scope.entries.length - 1;
+              		console.log("before date");
+              		
+            		$scope.entries.sort(function(a,b){
+            			  return new Date(b.date) - new Date(a.date);
+            		});
+                	
+                	
+            		$http.get("/iTrust2/api/v1/patient").then(
+                			function (response) {
+
+                            	$scope.patient = response.data;
+                            	$scope.fastingLimit = $scope.patient.bloodSugarFastingBound;
+            									$scope.mealLimit =  $scope.patient.bloodSugarMealBound;
+            									$scope.data = getLevels();
+                            	console.log($scope.patient.bloodSugarFastingBound);
+                            	
+														$scope.endDate = new Date();
+                            $scope.startDate = new Date($scope.endDate.getFullYear(), 0, 1);
+                        		$scope.setDateRange();
+                            	
+                            	for (i = 0; i < $scope.range.length; i++) {
+            				        
+            	                	if ($scope.range[i].fastingLevel > $scope.patient.bloodSugarFastingBound) {
+            							$scope.range[i].fastingLevel += " \u274C";
+            	                	}
+            					 	if ($scope.range[i].breakfastLevel > $scope.patient.bloodSugarMealBound){
+            							$scope.range[i].breakfastLevel += " \u274C";
+            					 	}
+            					 	if ($scope.range[i].lunchLevel > $scope.patient.bloodSugarMealBound){
+            							$scope.range[i].lunchLevel += " \u274C";
+            					 	}
+            					 	if ($scope.range[i].dinnerLevel > $scope.patient.bloodSugarMealBound){
+            							$scope.range[i].dinnerLevel += " \u274C";
+            					 	}
+                            	}
+                			});
+                	
+					
+					var meals = ["Fasting", "Breakfast", "Lunch", "Dinner"]
+					
+					$scope.options = {
+					    chart: {
+					        type: 'lineChart',
+					        height: 450,
+					        margin : {
+					            top: 60,
+					            right: 20,
+					            bottom: 60,
+					            left: 65
+					        },
+					        x: function(d){ return d.meal; },
+					        y: function(d){ return d.level; },
+					        duration: 500,
+					        xAxis: {
+					            axisLabel: 'Meals',
+					            axisLabelDistance: 20,
+					            tickFormat: function(d) {
+					                return meals[d];
+					              }
+					        },
+					        yAxis: {
+					            axisLabel: 'Blood Sugar Levels',
+					            axisLabelDistance: -5 ,
+					            rotateLabels:-90
+					        },
+					        useInteractiveGuideline: true,
+					        tooltip: {
+					            contentGenerator: function (e) {
+					                 var series = e.series[0];
+					                 return e;
+					               } 
+					   		},
+					   		showXAxis: true,
+					   		showYAxis: true
+					    }
+						
+					};
+            });
+            
+	       	// Sets the messages when the system fails to 
+			// add the food diary entry to the database.
+			$scope.failAddEntry = function () {
+				$scope.errorMsg = "Could not add some blood sugar level entries from the CSV file.";
+				$scope.message = "";
+			}
+        	
+           $scope.submit = function() {
+        	$scope.errorMsg = "";
+        	$scope.message = "";
+        	// POST the entries to the REST API endpoint, and handle success/error
+        	console.log($parse.data.length);
+				for (i = 0; i < $parse.data.length; i++) {
+					$scope.bloodSugarEntry = {
+							date: '',
+							fastingLevel: '',
+							breakfastLevel: '',
+							lunchLevel: '',
+							dinnerLevel: ''
+						};
+					// Validate entry date
+					var currentDate = new Date();
+					var givenDate = new Date($parse.data[i].date);
+
+					if(givenDate > currentDate) {
+						console.log($parse.data[i].date);
+						console.log("Given date is in the past.");
+					    $scope.failAddEntry();
+					} else {
+						
+						
+						$scope.bloodSugarEntry.date = $parse.data[i].date;
+
+						
+						// Validate nutrition values - they are all validated the
+						// same way, so we use a for loop to check and propagate all
+						// errors.
+						var sugarValues = {
+							"Fasting": $parse.data[i].fasting,
+							"Breakfast": $parse.data[i].meal_1,
+							"Lunch": $parse.data[i].meal_2,
+							"Dinner": $parse.data[i].meal_3,
+						};
+						
+						console.log(sugarValues);
+						for ( type in sugarValues ) {
+							if ( sugarValues[type] == null || sugarValues[type] < 0 ) {
+								$scope.failAddEntry();
+							}
+						}
+							
+							$scope.bloodSugarEntry.fastingLevel = $parse.data[i].fasting	
+							$scope.bloodSugarEntry.breakfastLevel = $parse.data[i].meal_1;
+							$scope.bloodSugarEntry.lunchLevel = $parse.data[i].meal_2;
+							$scope.bloodSugarEntry.dinnerLevel = $parse.data[i].meal_3;
+						
+						$http.post("/iTrust2/api/v1/bloodsugar", $scope.bloodSugarEntry).then(
+							function success(response) {
+								$http.get("/iTrust2/api/v1/bloodsugar").then(
+					                  	function (response) {
+					                  		$scope.respData = response.data;
+					                  		$scope.respData.sort(function(a,b){
+					              			  return new Date(a.date) - new Date(b.date);
+					              		});
+					                  		
+					                  	});
+								$http.get("/iTrust2/api/v1/bloodsugar").then(
+						              	function (response) {
+						            		$scope.entries = response.data;
+						              		$scope.idx = $scope.entries.length - 1;
+						              		console.log("before date");
+						              		
+						            		$scope.entries.sort(function(a,b){
+						            			  return new Date(b.date) - new Date(a.date);
+						            		});
+						                	
+						                	
+						            		$http.get("/iTrust2/api/v1/patient").then(
+						                			function (response) {
+														
+						                            	$scope.patient = response.data;
+						                            	$scope.fastingLimit = $scope.patient.bloodSugarFastingBound;
+						            									$scope.mealLimit =  $scope.patient.bloodSugarMealBound;
+						            									$scope.data = getLevels();
+						                            	console.log($scope.patient.bloodSugarFastingBound);
+						                            	
+																				$scope.endDate = new Date();
+						                            $scope.startDate = new Date($scope.endDate.getFullYear(), 0, 1);
+						                        		$scope.setDateRange();
+						                            	
+						                            	for (i = 0; i < $scope.range.length; i++) {
+						            				        
+						            	                	if ($scope.range[i].fastingLevel > $scope.patient.bloodSugarFastingBound) {
+						            							$scope.range[i].fastingLevel += " \u274C";
+						            	                	}
+						            					 	if ($scope.range[i].breakfastLevel > $scope.patient.bloodSugarMealBound){
+						            							$scope.range[i].breakfastLevel += " \u274C";
+						            					 	}
+						            					 	if ($scope.range[i].lunchLevel > $scope.patient.bloodSugarMealBound){
+						            							$scope.range[i].lunchLevel += " \u274C";
+						            					 	}
+						            					 	if ($scope.range[i].dinnerLevel > $scope.patient.bloodSugarMealBound){
+						            							$scope.range[i].dinnerLevel += " \u274C";
+						            					 	}
+						                            	}
+						                			});
+						            		var meals = ["Fasting", "Breakfast", "Lunch", "Dinner"]
+											
+											$scope.options = {
+											    chart: {
+											        type: 'lineChart',
+											        height: 450,
+											        margin : {
+											            top: 60,
+											            right: 20,
+											            bottom: 60,
+											            left: 65
+											        },
+											        x: function(d){ return d.meal; },
+											        y: function(d){ return d.level; },
+											        duration: 500,
+											        xAxis: {
+											            axisLabel: 'Meals',
+											            axisLabelDistance: 20,
+											            tickFormat: function(d) {
+											                return meals[d];
+											              }
+											        },
+											        yAxis: {
+											            axisLabel: 'Blood Sugar Levels',
+											            axisLabelDistance: -5 ,
+											            rotateLabels:-90
+											        },
+											        useInteractiveGuideline: true,
+											        tooltip: {
+											            contentGenerator: function (e) {
+											                 var series = e.series[0];
+											                 return e;
+											               } 
+											   		},
+											   		showXAxis: true,
+											   		showYAxis: true
+											    }
+												
+											};
+						            });
+								if (response.data.patient && $scope.errorMsg == "") {
+									$scope.message = "Blood sugar level entry has been added successfully."
+									$scope.errorMsg = "";
+								} else {
+									// Redirected to login page,
+									// not actually successful
+									$scope.failAddEntry();
+								}
+							}, function failure(rejection) {
+								$scope.failAddEntry();
+							}
+						);
+					}
+				}
+        	   
+           }
+           
+           
+
+           	// Index to previous day and update graph data
+			$scope.previous = function() {
+				if ($scope.idx > 0)
+					$scope.idx--;
+				$scope.data = getLevels();
+			}
+			 
+			// Index to next day and update graph data
+			$scope.next = function() {
+				if ($scope.idx < $scope.respData.length - 1)
+					$scope.idx++;
+				$scope.data = getLevels();
+			}
+			
+			// Returns the current day levels in the NVD3 key:value[] format
+			// where each key:value pair is a line of data
+			function getLevels() {
+				levels = $scope.respData[$scope.idx];
+				
+				//TODO: Add HCP level limit here as another key/values chart
+				return [
+					{
+						key: "Blood Sugar Levels for " + levels.date,
+						values: [
+							{
+				                meal: 0,
+				                level: levels.fastingLevel
+				            },
+				            {
+				                meal: 1,
+				                level: levels.breakfastLevel
+				            },
+				            {
+				                meal: 2,
+				                level: levels.lunchLevel
+				            },
+				            {
+				                meal: 3,
+				                level: levels.dinnerLevel
+				            }
+						],
+						area: false
+					},
+					{
+						key: "HCP Recommended Blood Sugar Limit   ",
+						values: [
+							{
+				                meal: 0,
+				                level: $scope.fastingLimit
+				            },
+				            {
+				                meal: 1,
+				                level: $scope.mealLimit
+				            },
+				            {
+				                meal: 2,
+				                level: $scope.mealLimit
+				            },
+				            {
+				                meal: 3,
+				                level: $scope.mealLimit
+				            }
+						],
+						area: false
+					}
+		        ]
+			}
+			
+			// Toggles display between table and graph
+			$scope.toggleGraph = function() {
+				$scope.idx = $scope.entries.length - 1;
+				$scope.showGraph = !$scope.showGraph;
+			}
+			
+			$scope.setDateRange = function() {
+				// Validate entry date
+				console.log($scope.entries);
+				var start = new Date($scope.startDate);
+				var end = new Date($scope.endDate);
+				var now = new Date();
+				
+				if (!dateTimeService.isValidDate(start) || now - start < 0) {
+					$scope.errorMsg += "Please input a valid start date.\n";
+				} else if (!dateTimeService.isValidDate(end) || now - end < 0) {
+					$scope.errorMsg += "Please input a valid end date.\n";
+				} else if (end <= start) {
+					$scope.errorMsg += "Please input a valid start and end range.\n";
+				} else {
+				
+					$scope.range = []
+					for (var i = 0; i < $scope.entries.length; i++) {
+						var date = new Date($scope.entries[i].date);
+						var entryDate = $scope.entries[i].date.split("-");
+						date.setDate(entryDate[2]);
+						date.setHours(0, 0, 0);
+						console.log("Date of entry" + date);
+						console.log("After start " + (date >= start ? "true" : "false"));
+						
+						if (date >= start && date <= end)
+							$scope.range.push($scope.entries[i]);
+					}
+				}
+			}
+           
+          });
+        
+			/*]]>*/
+      </script>
+
+			<div ng-app="myApp" ng-controller="bloodSugarTableCtrl">
+				<div class="container">
+					<div class="row" style="margin-top: 1em">
+
+						<div class="col-md-12">
+							<div class="panel panel-primary">
+								<div class="panel-heading">
+									<h3>Blood Sugar Levels</h3>
+								</div>
+								<div class="panel-body">
+									<div class="row">
+										<div class="col-md-12">
+											<div  style="margin-left:4%;margin-bottom:2%">
+												<div>
+													<button type="submit" class="btn btn-primary" ng-click="toggleGraph()" style="margin-bottom:2%"
+																	name="display" id="display">Toggle Display</button>
+												</div>
+												<div ng-show="!showGraph">
+													<div class="form-group">
+													<label for="date">Start Date</label> <input class="form-control"
+														id="startDate" type="date" ng-model="startDate" name="date"
+														required="true" />
+													</div>
+													<div class="form-group">
+														<label for="date">End Date</label> <input class="form-control"
+															id="endDate" type="date" ng-model="endDate" name="date"
+															required="true" />
+													</div>
+													<button type="submit" class="btn btn-primary" ng-click="setDateRange()"
+																		name="display" id="display">Apply</button>
+												</div>
+												
+											</div>
+											
+											<div ng-if="showGraph">
+												<div style="margin-bottom:4%;margin-left:auto;margin-right:auto;width:100%">
+													<button type="submit" class="btn btn-primary" ng-click="previous()"
+																		name="previous" id="previos">Previous Day</button>
+													<button type="submit" class="btn btn-primary" ng-click="next()"
+																		name="next" id="next">Next Day</button>
+												</div>
+												<nvd3 id="chart" options="options" data="data"></nvd3>
+											</div>
+										
+											<table border="1" class="table table-striped" ng-if="!showGraph">
+											    <thead>
+											      <tr>
+											        <td>Date</td>
+											        <td>Fasting (Recommendation: {{fastingLimit}}) mg/dl</td>
+											        <td>Breakfast (Recommendation: {{mealLimit}}) mg/dl</td>
+											        <td>Lunch (Recommendation: {{mealLimit}}) mg/dl</td>
+											        <td>Dinner (Recommendation: {{mealLimit}}) mg/dlz</td>
+											      </tr>
+											    </thead>
+											    <tbody>
+											      <tr ng-repeat="obj in range">
+											        <td>{{obj.date}}</td>
+											        <td>{{obj.fastingLevel}}</td>
+											        <td>{{obj.breakfastLevel}}</td>
+											        <td>{{obj.lunchLevel}}</td>
+											        <td>{{obj.dinnerLevel}}</td>
+											      </tr>
+											    </tbody>
+											</table>
+											<br>
+											<a href="/iTrust2/patient/sugarLevels/addSugarLevelsForm" class="btn btn-default">Manually Add Sugar Data</a>
+											<br>
+											
+											<br>
+											<label for="avatar">Choose CSV File to Input Blood Sugar Data:</label>
+
+											<input type="file"
+											       id="csvFile" name="csvFileName"
+											       accept=".csv" file-reader="fileContent" style="margin-bottom:2%">
+											<button type="submit" class="btn btn-primary" ng-click=submit()
+												name="submit" id="submit">Submit</button>
+												<div class="form-group">
+													<div name="success" class="text-success" style="white-space: pre;">{{message}}</div>
+													<div name="errorMsg" class="text-danger" style="white-space: pre;">{{errorMsg}}</div>
+												</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+
+</html>

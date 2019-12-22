@@ -1,0 +1,151 @@
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:include="layout :: head(title=~{::title},links=~{::script})">
+<title>Add Blood Sugar Levels Form</title>
+<script th:src="@{/resources/js/dateTimeService.js}"
+	src="../resources/js/dateTimeService.js"></script>
+</head>
+
+<body th:include="layout :: body" th:with="content=~{::content}">
+	<div th:fragment="content">
+
+		<script th:inline="javascript">
+			/* Otherwise Thymeleaf tries to parse Javascript as XML and breaks itself sometimes.  Sigh */
+			/*<![CDATA[*/
+			var app = angular.module("addSugarLevelsApp", ['dateTimeServices']);
+			app.controller('addSugarLevelsCtrl', function ($scope, $http, dateTimeService) {
+				const now = new Date();
+				$scope.inputDate = now;
+				$scope.entry = {
+					date: dateTimeService.toDateString(now),
+					fastingLevel: '',
+					breakfastLevel: '',
+					lunchLevel: '',
+					dinnerLevel: ''
+				};
+				// Sets the messages when the system fails to 
+				// add the food diary entry to the database.
+				$scope.failAddEntry = function () {
+					$scope.errorMsg += "Could not add blood sugar levels."
+					$scope.message = "";
+				}
+
+				$scope.submit = function () {
+					$scope.errorMsg = "";
+					
+					// Validate entry date
+					var date = new Date($scope.inputDate);
+					var now = new Date();
+					if (!dateTimeService.isValidDate(date) || now - date < 0) {
+						$scope.errorMsg += "Please input a valid date.\n";
+					} else {
+						$scope.entry.date = dateTimeService.toDateString(date);
+					}
+					
+					// Validate nutrition values - they are all validated the
+					// same way, so we use a for loop to check and propagate all
+					// errors.
+					var nutritionValues = {
+						"Fasting": $scope.entry.fastingLevel,
+						"Breakfast": $scope.entry.breakfastLevel,
+						"Lunch": $scope.entry.lunchLevel,
+						"Dinner": $scope.entry.dinnerLevel,
+					};
+					
+					for ( type in nutritionValues ) {
+						if ( nutritionValues[type] == null || nutritionValues[type] < 0 ) {
+							$scope.errorMsg += `Field ${type} must be a positive whole number.\n`;
+						}
+					}
+					
+					// Check to ensure a patient is authenticated and the form is correct.
+					if ($scope.errorMsg.length >= 1 ) {
+						$scope.failAddEntry();
+						return;
+					}
+					
+					// Prepare entry for submission
+					var submitEntry = angular.copy($scope.entry);
+					submitEntry.date = dateTimeService.toDateString(date);
+					
+					console.log($scope.entry);
+
+					// POST the entry to the REST API endpoint, and handle
+					// success/error
+					$http.post("/iTrust2/api/v1/bloodsugar", $scope.entry).then(
+						function success(response) {
+							if (response.data.patient) {
+								$scope.message = "Blood sugar level entry has been added successfully."
+								$scope.entry = {};
+								$scope.errorMsg = "";
+								document.location.href = '/iTrust2/patient/sugarLevels/bloodSugarTable';
+							} else {
+								// Redirected to login page,
+								// not actually successful
+								$scope.failAddEntry();
+							}
+						}, function failure(rejection) {
+							$scope.failAddEntry();
+						}
+					);
+				}
+			});
+			/*]]>*/
+		</script>
+
+		<div class="container" ng-app="addSugarLevelsApp"
+			ng-controller="addSugarLevelsCtrl">
+			<div class="row">
+				<div class="col">
+					<h3>Add Blood Sugar Levels</h3>
+				</div>
+
+				<div class="col-md-5">
+					<div class="form-group">
+						<label for="date">Date</label> <input class="form-control"
+							id="date" type="date" ng-model="inputDate" name="date"
+							required="true" />
+					</div>
+
+					<div class="form-group">
+						<label for="fasting">Fasting</label> <input
+							class="form-control" id="fasting" type="number"
+							ng-model="entry.fastingLevel" name="fasting" />
+					</div>
+
+					<div class="form-group">
+						<label for="breakfast">Breakfast</label> <input
+							class="form-control" id="breakfast" type="number"
+							ng-model="entry.breakfastLevel" name="breakfast" />
+					</div>
+					
+
+					<div class="form-group">
+						<label for="lunch">Lunch</label> <input
+							class="form-control" id="lunch" type="number"
+							ng-model="entry.lunchLevel" name="lunch" />
+					</div>
+
+					<div class="form-group">
+						<label for="dinner">Dinner</label> <input
+							class="form-control" id="dinner" type="number"
+							ng-model="entry.dinnerLevel" name="dinner" />
+					</div>
+
+					<div class="form-group">
+						<button type="submit" class="btn btn-primary" ng-click=submit()
+							name="submit" id="submit">Add Entry</button>
+					</div>
+
+					<div class="form-group">
+						<div name="success" class="text-success" style="white-space: pre;">{{message}}</div>
+						<div name="errorMsg" class="text-danger" style="white-space: pre;">{{errorMsg}}</div>
+					</div>
+
+				</div>
+			</div>
+
+		</div>
+</body>
+
+</html>
